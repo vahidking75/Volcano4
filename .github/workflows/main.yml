@@ -1,0 +1,40 @@
+name: Clear Repository Contents
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_delete:
+        description: 'Type "DELETE" to confirm deletion of all repository contents'
+        required: true
+
+jobs:
+  clear_repo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # A token is required to push changes back to the repo
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirm_delete }}" != "DELETE" ]; then
+            echo "Deletion not confirmed. Exiting."
+            exit 1
+          fi
+
+      - name: Remove all files
+        run: |
+          # Remove all tracked files (except .git, which is ignored by the shell glob)
+          git rm -r --ignore-unmatch '*'
+          # Also remove hidden files/directories, carefully excluding '.' and '..'
+          git rm -r --ignore-unmatch '.[!.]*' || true
+
+      - name: Commit and push changes
+        run: |
+          git commit -m "Automated cleanup: Removed all repository contents"
+          git push origin HEAD
+        # If no changes were committed (e.g. repo was already empty), the commit/push will fail.
+        # The "|| true" allows the step to pass even if there are no changes to push.
+        continue-on-error: true
